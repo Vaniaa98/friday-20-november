@@ -6,6 +6,7 @@
 # Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 #   mkdir -p out && MAKEFUN_OUTPUT_DIR=out python3 main.py
 
+import hashlib
 import os
 import shutil
 from pathlib import Path
@@ -14,5 +15,21 @@ HERE = Path(__file__).resolve().parent
 OUT = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output"))
 
 OUT.mkdir(parents=True, exist_ok=True)
+
+
+def _sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 # A plain copy: the same input bytes always produce the same output bytes.
-shutil.copyfile(HERE / "entry.png", OUT / "entry.png")
+_src = HERE / "entry.png"
+_dst = OUT / "entry.png"
+shutil.copyfile(_src, _dst)
+# Verify the copy so a truncated or failed write can never silently reach
+# the grader: the output must be byte-identical to the source image.
+if _sha256(_src) != _sha256(_dst):
+    raise RuntimeError("entry.png copy failed integrity check")
